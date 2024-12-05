@@ -1,21 +1,21 @@
 const request = require('supertest');
-const app = require('./app'); // Замість './app' вкажіть шлях до вашого основного файлу
+const app = require('./server');
 
 const mongoose = require('mongoose');
-const Booking = require('./models/Booking'); // Замість './models/Booking' вкажіть правильний шлях до моделі
+const Booking = require('./models/Booking');
 
 beforeAll(async () => {
-  // Підключення до бази даних перед виконанням тестів
+  // Connect to the database before running tests
   await mongoose.connect('mongodb://localhost:27017/testBookingsDB', { useNewUrlParser: true, useUnifiedTopology: true });
 });
 
 afterAll(async () => {
-  // Закриття підключення до бази даних після виконання тестів
+  // Close the database connection after running tests
   await mongoose.connection.close();
 });
 
 describe('Bookings API', () => {
-  // Тест на створення бронювання
+  // Test for creating a booking
   it('should create a new booking', async () => {
     const bookingData = {
       user: 'John Doe',
@@ -27,9 +27,9 @@ describe('Bookings API', () => {
     const response = await request(app)
       .post('/bookings')
       .send(bookingData)
-      .expect(201); // Перевірка, що статус відповіді - 201 (Created)
+      .expect(201); // Check that the response status is 201 (Created)
 
-    // Перевірка, чи відповідає структура створеного бронювання
+    // Check that the structure of the created booking matches
     expect(response.body).toHaveProperty('_id');
     expect(response.body.user).toBe(bookingData.user);
     expect(response.body.date).toBe(bookingData.date);
@@ -37,7 +37,7 @@ describe('Bookings API', () => {
     expect(response.body.endTime).toBe(bookingData.endTime);
   });
 
-  // Тест на перевірку помилки створення бронювання з неправильними часами
+  // Test for error when creating a booking with invalid times
   it('should return an error when startTime is later than endTime', async () => {
     const invalidBookingData = {
       user: 'Jane Doe',
@@ -49,12 +49,12 @@ describe('Bookings API', () => {
     const response = await request(app)
       .post('/bookings')
       .send(invalidBookingData)
-      .expect(400); // Перевірка на 400 статус (Bad Request)
+      .expect(400); // Check for 400 status (Bad Request)
 
     expect(response.body.error).toBe('startTime must be earlier than endTime');
   });
 
-  // Тест на перевірку бронювання на вже зайнятий час
+  // Test for error when the time slot is already booked
   it('should return an error when the time slot is already booked', async () => {
     const existingBookingData = {
       user: 'Alice',
@@ -63,34 +63,34 @@ describe('Bookings API', () => {
       endTime: '11:00'
     };
 
-    // Спочатку створимо одне бронювання
+    // First, create one booking
     await request(app)
       .post('/bookings')
       .send(existingBookingData)
       .expect(201);
 
-    // Тепер спробуємо створити ще одне бронювання на той самий час
+    // Now try to create another booking for the same time
     const conflictingBookingData = { ...existingBookingData };
 
     const response = await request(app)
       .post('/bookings')
       .send(conflictingBookingData)
-      .expect(400); // Перевірка на 400 статус
+      .expect(400); // Check for 400 status
 
     expect(response.body.error).toBe('Time slot is already booked.');
   });
 
-  // Тест на отримання всіх бронювань
+  // Test for getting all bookings
   it('should return all bookings', async () => {
     const response = await request(app)
       .get('/bookings')
-      .expect(200); // Перевірка на 200 статус (OK)
+      .expect(200); // Check for 200 status (OK)
 
-    // Перевірка, що повертається масив бронювань
+    // Check that an array of bookings is returned
     expect(Array.isArray(response.body)).toBe(true);
   });
 
-  // Тест на отримання бронювання за ID
+  // Test for getting a booking by ID
   it('should return a booking by ID', async () => {
     const newBooking = {
       user: 'Bob',
@@ -99,7 +99,7 @@ describe('Bookings API', () => {
       endTime: '15:00'
     };
 
-    // Створимо бронювання перед тим, як запитати його по ID
+    // Create a booking before requesting it by ID
     const createdBooking = await request(app)
       .post('/bookings')
       .send(newBooking)
@@ -107,24 +107,24 @@ describe('Bookings API', () => {
 
     const response = await request(app)
       .get(`/bookings/${createdBooking.body._id}`)
-      .expect(200); // Перевірка на 200 статус
+      .expect(200); // Check for 200 status
 
     expect(response.body._id).toBe(createdBooking.body._id);
     expect(response.body.user).toBe(newBooking.user);
   });
 
-  // Тест на випадок, коли бронювання не знайдено за ID
+  // Test for case when booking is not found by ID
   it('should return 404 if booking is not found by ID', async () => {
-    const nonExistingId = '60c72b2f9e0d9e8b88b8b8b8'; // Вигадане ID
+    const nonExistingId = '60c72b2f9e0d9e8b88b8b8b8'; // Fake ID
 
     const response = await request(app)
       .get(`/bookings/${nonExistingId}`)
-      .expect(404); // Перевірка на 404 статус
+      .expect(404); // Check for 404 status
 
     expect(response.body.error).toBe('Booking not found.');
   });
 
-  // Тест на видалення бронювання
+  // Test for deleting a booking
   it('should delete a booking by ID', async () => {
     const newBooking = {
       user: 'Charlie',
@@ -133,7 +133,7 @@ describe('Bookings API', () => {
       endTime: '10:00'
     };
 
-    // Створимо бронювання
+    // Create a booking
     const createdBooking = await request(app)
       .post('/bookings')
       .send(newBooking)
@@ -141,22 +141,22 @@ describe('Bookings API', () => {
 
     const response = await request(app)
       .delete(`/bookings/${createdBooking.body._id}`)
-      .expect(200); // Перевірка на 200 статус
+      .expect(200); // Check for 200 status
 
     expect(response.body.message).toBe('Booking deleted successfully.');
 
-    // Перевірка, чи бронювання видалене
+    // Check if the booking is deleted
     const deletedBooking = await Booking.findById(createdBooking.body._id);
     expect(deletedBooking).toBeNull();
   });
 
-  // Тест на випадок, коли бронювання для видалення не знайдено
+  // Test for case when booking to delete is not found
   it('should return 404 if booking to delete is not found', async () => {
-    const nonExistingId = '60c72b2f9e0d9e8b88b8b8b8'; // Вигадане ID
+    const nonExistingId = '60c72b2f9e0d9e8b88b8b8b8'; // Fake ID
 
     const response = await request(app)
       .delete(`/bookings/${nonExistingId}`)
-      .expect(404); // Перевірка на 404 статус
+      .expect(404); // Check for 404 status
 
     expect(response.body.error).toBe('Booking not found.');
   });
